@@ -1,0 +1,7 @@
+{"level":"info","message":"HTTP server started","port":"5000","service":"golf-charity-api","timestamp":"2026-03-20 18:40:49"}
+{"level":"info","message":"HTTP server started","port":"5000","service":"golf-charity-api","timestamp":"2026-03-20 18:40:53"}
+{"level":"warn","message":"Authentication required","method":"GET","path":"/api/scores","service":"golf-charity-api","statusCode":401,"timestamp":"2026-03-20 18:42:18"}
+{"level":"warn","message":"Route not found","method":"GET","path":"/favicon.ico","service":"golf-charity-api","statusCode":404,"timestamp":"2026-03-20 18:42:18"}
+{"level":"info","message":"HTTP server started","port":"5000","service":"golf-charity-api","timestamp":"2026-03-20 18:45:24"}
+{"email":"test@golfcharity.club","error":"Invalid login credentials","level":"warn","message":"Login: invalid credentials","service":"golf-charity-api","timestamp":"2026-03-20 18:45:57"}
+{"level":"warn","message":"Invalid email or password","method":"POST","path":"/api/auth/login","service":"golf-charity-api","statusCode":401,"timestamp":"2026-03-20 18:45:57"}
