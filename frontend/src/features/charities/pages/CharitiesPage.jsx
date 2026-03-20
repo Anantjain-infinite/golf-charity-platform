@@ -118,8 +118,7 @@ const CharitiesPage = () => {
     isFetchingNextPage,
   } = useCharities(debouncedSearch);
 
-  const charities = data?.pages?.flatMap((page) => page.data) || [];
-
+  const charities = data?.pages?.flatMap((page) => page.data || []) || [];
   return (
     <div style={{ backgroundColor: 'var(--color-bg)', minHeight: '100vh' }}>
       <div className="page-container" style={{ paddingTop: '60px', paddingBottom: '80px' }}>

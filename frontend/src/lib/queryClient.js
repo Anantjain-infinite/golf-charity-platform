@@ -6,13 +6,17 @@ export const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 2,
       gcTime: 1000 * 60 * 10,
       retry: (failureCount, error) => {
-        if (error?.response?.status >= 400 && error?.response?.status < 500) {
+        if (
+          error?.response?.status >= 400 &&
+          error?.response?.status < 500
+        ) {
           return false;
         }
         return failureCount < 3;
       },
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
+      refetchOnMount: true,
     },
     mutations: {
       retry: false,
