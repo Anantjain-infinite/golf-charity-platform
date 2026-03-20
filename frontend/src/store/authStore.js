@@ -1,0 +1,32 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+export const useAuthStore = create(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+
+      setAuth: (user, token) =>
+        set({ user, token, isAuthenticated: true }),
+
+      updateUser: (updates) =>
+        set((state) => ({
+          user: { ...state.user, ...updates },
+        })),
+
+      logout: () =>
+        set({ user: null, token: null, isAuthenticated: false }),
+    }),
+    {
+      name: 'golf-charity-auth',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+);
