@@ -1,5 +1,8 @@
-node_modules
+node_modules/
 .env
 GolfCharity_Master_Prompt_v2.md
 guide.md
-logs
+
+
+
+backend/logs/
