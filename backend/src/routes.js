@@ -11,6 +11,14 @@ import adminRoutes from './features/admin/admin.routes.js';
 
 const router = express.Router();
 
+router.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Golf Charity API is running',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.get('/health', (_req, res) => {
     res.status(200).json({
       success: true,

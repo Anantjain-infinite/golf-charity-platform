@@ -15,6 +15,17 @@ const app = express();
 // Security headers
 app.use(helmet());
 
+app.get('/', (_req, res) => {
+  res.status(200).json({ success: true, message: 'Golf Charity API is running' });
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.head('/', (_req, res) => res.status(200).end());
+app.head('/health', (_req, res) => res.status(200).end());
+
 // CORS: allow only known frontend origins
 app.use(
   cors({
