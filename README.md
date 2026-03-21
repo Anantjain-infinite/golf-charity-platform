@@ -1,465 +1,484 @@
-# Golf Charity Subscription Platform
+# Golf Charity Club
 
-A production-ready, full-stack web application that combines golf score tracking with monthly lottery-style prize draws and charitable giving. Recreational golfers can participate in a fun, monthly draw while supporting their chosen charity.
-
-## 📋 Overview
-
-The Golf Charity Subscription Platform is a modern, charity-focused product designed for recreational golfers who want to:
-- Track their golf scores using the Stableford format (rolling 5-score system)
-- Participate in monthly lottery-style prize draws
-- Support charitable causes with every subscription
-
-**Design Philosophy:** Modern charity-tech aesthetic with contemporary UI — no traditional golf website styling.
+A production-ready, full-stack subscription platform combining golf score tracking, monthly prize draws, and charitable giving. Built as a trainee selection assignment for Digital Heroes.
 
 ---
 
-## 🛠️ Tech Stack
+## Live Demo
+
+| Service | URL |
+|---|---|
+| Frontend | https://golf-charity-platform-chi.vercel.app/|
+| Backend API |https://golf-charity-platform-gcws.onrender.com/|
+| API Health | https://golf-charity-platform-gcws.onrender.com/health |
+
+**Test Credentials**
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@golfcharity.club | Admin@2026! |
+| Subscriber | test@golfcharity.club | Test@2026! |
+
+**Stripe Test Card:** `4242 4242 4242 4242` — any future expiry, any CVC
+
+> The backend is hosted on Render free tier. If the first request takes 30-60 seconds, the server is waking up from sleep. Subsequent requests are fast.
+
+---
+
+## What It Does
+
+Golf Charity Club lets golfers subscribe to a platform where their Stableford scores are automatically entered into a monthly prize draw. A portion of every subscription goes to a charity the user chooses. Winners are verified by an admin before payouts are sent.
+
+**Three things in one product:**
+- Golf score tracking (rolling 5-score Stableford system)
+- Monthly lottery-style prize draws (3-match, 4-match, 5-match jackpot tiers)
+- Charitable giving (minimum 10% of every subscription to a chosen charity)
+
+---
+
+## Features
+
+### User Features
+- Email signup and login with JWT authentication
+- Monthly and yearly subscription plans via Stripe Checkout
+- Enter up to 5 Stableford scores (rolling — oldest removed when 6th is added)
+- Select and change charity at any time
+- Adjust charity contribution percentage (10% minimum)
+- View draw history with match visualisation
+- Upload prize proof and track payout status
+- Billing management via Stripe Customer Portal
+
+### Admin Features
+- Full user management (view, edit, delete, toggle admin role)
+- Draw creation with two algorithms: Random and Weighted (frequent/rare scores)
+- Draw simulation before publishing (no data saved until confirmed)
+- Jackpot rollover when no 5-match winner
+- Prize claim review (approve, reject with note, mark paid)
+- Charity management (create, edit, feature, deactivate)
+- Analytics dashboard with 4 charts (subscriber growth, prize pool, charity breakdown, match distribution)
+
+### Technical Features
+- Rate limiting and throttling on all API routes
+- Server-side caching for charities and draw data
+- Optimistic UI updates on score entry
+- Infinite scroll with IntersectionObserver on charity and draw history lists
+- Virtualised lists for admin user tables
+- Route-level code splitting with React lazy and Suspense
+- Debounced search inputs
+- Winston logging with environment-aware transports
+- Stripe webhook signature verification
+- Row Level Security on all Supabase tables
+- Database triggers for score rolling and charity totals
+- Zod validation on all API inputs
+- Global error handling with custom ApiError class
+
+---
+
+## Tech Stack
 
 ### Frontend
-- **React 18** (Vite, JavaScript)
-- **React Router v6** - Client-side routing
-- **TanStack Query v5** - Server state management
-- **Zustand** - Global UI state (auth, sidebar, modals)
-- **Axios** - Centralized HTTP client with interceptors
-- **React Hook Form + Yup** - Forms and validation
-- **Tailwind CSS** - Utility-first styling
-- **shadcn/ui** - Base components
-- **Framer Motion** - Animations and transitions
-- **Recharts** - Analytics charts
-- **React Virtual** - Virtualized lists
-- **React Intersection Observer** - Lazy loading & infinite scroll
-- **React Toastify** - Notifications
-- **date-fns** - Date formatting and manipulation
+| Technology | Purpose |
+|---|---|
+| React 18 + Vite | UI framework and build tool |
+| React Router v6 | Client-side routing |
+| TanStack Query v5 | Server state management and caching |
+| TanStack Virtual | Virtualised lists for large datasets |
+| Zustand | Global UI state (auth, sidebar) |
+| Axios | HTTP client with request/response interceptors |
+| React Hook Form + Yup | Form handling and validation |
+| Framer Motion | Animations and page transitions |
+| Tailwind CSS v4 | Utility-first styling |
+| Recharts | Analytics charts |
+| date-fns | Date formatting |
+| React Toastify | Toast notifications |
 
 ### Backend
-- **Node.js 20+** - Runtime
-- **Express 4** - Modular router structure
-- **Supabase JS Client** - Database, auth & storage
-- **Stripe Node SDK** - Subscriptions and webhooks
-- **Resend** - Transactional emails
-- **Winston + Morgan** - Logging
-- **Zod** - Server-side input validation
-- **Helmet** - HTTP security headers
-- **express-rate-limit** - Rate limiting
-- **node-cache** - In-memory caching
-- **multer + sharp** - File upload & image processing
+| Technology | Purpose |
+|---|---|
+| Node.js 20 + Express 4 | Server framework |
+| Supabase JS Client | Database, auth, and file storage |
+| Stripe Node SDK | Subscription payments and webhooks |
+| Resend | Transactional email delivery |
+| Winston + Morgan | Structured logging |
+| Zod | API input validation |
+| express-rate-limit | Rate limiting per endpoint |
+| express-slow-down | Request throttling |
+| node-cache | In-memory caching |
+| Helmet | HTTP security headers |
+| Multer | File upload handling |
+| Compression | Gzip response compression |
 
-### Database & Infrastructure
-- **Supabase (PostgreSQL)** - Database
-- **Supabase Storage** - File storage
-- **Frontend:** Vercel deployment
-- **Backend:** Railway or Render deployment
+### Infrastructure
+| Service | Purpose |
+|---|---|
+| Supabase | PostgreSQL database, authentication, file storage |
+| Stripe | Payment processing (test mode) |
+| Resend | Email delivery |
+| Render | Backend hosting |
+| Vercel | Frontend hosting |
+| GitHub | Source control |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 golf-charity-platform/
-├── backend/
-│   ├── src/
-│   │   ├── app.js                 # Express app setup
-│   │   ├── routes.js              # Main router
-│   │   ├── server.js              # Server entry point
-│   │   ├── config/                # Configuration files
-│   │   │   ├── db.js              # Supabase client
-│   │   │   ├── env.js             # Environment variables
-│   │   │   ├── logger.js          # Winston logger
-│   │   │   ├── cache.js           # Node-cache configuration
-│   │   │   └── rateLimit.js       # Rate limiting rules
-│   │   ├── features/              # Feature modules
-│   │   │   ├── auth/              # Authentication
-│   │   │   ├── users/             # User management
-│   │   │   ├── scores/            # Golf score tracking
-│   │   │   ├── charities/         # Charity management
-│   │   │   ├── draws/             # Draw engine & logic
-│   │   │   ├── claims/            # Prize claims
-│   │   │   ├── payments/          # Payment processing
-│   │   │   ├── emails/            # Email templates
-│   │   │   └── admin/             # Admin features
-│   │   ├── middleware/            # Express middleware
-│   │   │   ├── auth.js            # Auth verification
-│   │   │   ├── adminOnly.js       # Admin guard
-│   │   │   ├── validate.js        # Input validation
-│   │   │   ├── errorHandler.js    # Global error handling
-│   │   │   └── notFound.js        # 404 handler
-│   │   ├── utils/                 # Shared utilities
-│   │   │   ├── ApiError.js        # Custom error class
-│   │   │   ├── asyncHandler.js    # Async route wrapper
-│   │   │   └── pagination.js      # Pagination helper
-│   │   ├── scripts/               # Database scripts
-│   │   │   └── seed.js            # Seed data
-│   │   └── logs/                  # Application logs
-│   └── package.json
-│
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx                # Root component
-│   │   ├── main.jsx               # Entry point
-│   │   ├── components/
-│   │   │   ├── layout/            # Layout components
-│   │   │   │   ├── AppShell.jsx
-│   │   │   │   ├── AdminShell.jsx
-│   │   │   │   ├── PublicLayout.jsx
-│   │   │   │   └── Sidebar.jsx
-│   │   │   └── shared/            # Reusable components
-│   │   │       ├── ErrorBoundary.jsx
-│   │   │       ├── VirtualList.jsx
-│   │   │       ├── InfiniteScrollTrigger.jsx
-│   │   │       ├── ConfirmModal.jsx
-│   │   │       └── EmptyState.jsx
-│   │   ├── features/              # Feature pages & modules
-│   │   │   ├── auth/              # Login, signup
-│   │   │   ├── dashboard/         # User dashboard
-│   │   │   ├── scores/            # Score entry & tracking
-│   │   │   ├── charities/         # Charity listings
-│   │   │   ├── draws/             # Draw information
-│   │   │   ├── claims/            # Prize claims
-│   │   │   ├── admin/             # Admin interface
-│   │   │   ├── subscribe/         # Subscription flow
-│   │   │   ├── settings/          # User settings
-│   │   │   ├── home/              # Homepage
-│   │   │   └── [feature]Service.js
-│   │   ├── hooks/                 # Custom React hooks
-│   │   │   ├── useDebounce.js
-│   │   │   └── useLocalStorage.js
-│   │   ├── lib/                   # External integrations
-│   │   │   ├── axios.js           # HTTP client
-│   │   │   ├── queryClient.js     # TanStack Query config
-│   │   │   └── supabaseClient.js
-│   │   ├── router/                # React Router config
-│   │   │   ├── index.jsx
-│   │   │   ├── ProtectedRoute.jsx
-│   │   │   └── AdminRoute.jsx
-│   │   ├── store/                 # Zustand stores
-│   │   │   ├── authStore.js
-│   │   │   └── uiStore.js
-│   │   ├── utils/                 # Utilities
-│   │   │   ├── constants.js
-│   │   │   └── formatters.js
-│   │   └── assets/
-│   ├── package.json
-│   ├── vite.config.js
-│   └── index.html
+│   └── src/
+│       ├── features/          # Feature-based modules
+│       │   ├── auth/          # Login, signup
+│       │   ├── dashboard/     # Dashboard tabs
+│       │   ├── scores/        # Score entry and management
+│       │   ├── charities/     # Charity listing and detail
+│       │   ├── draws/         # Draw history
+│       │   ├── claims/        # Prize claims
+│       │   ├── subscribe/     # Subscription flow
+│       │   ├── settings/      # Account settings
+│       │   ├── home/          # Public homepage
+│       │   └── admin/         # Admin panel
+│       ├── components/
+│       │   ├── layout/        # AppShell, Sidebar, PublicLayout
+│       │   └── shared/        # Reusable components
+│       ├── hooks/             # Global custom hooks
+│       ├── lib/               # Axios, QueryClient, Supabase client
+│       ├── store/             # Zustand stores
+│       ├── router/            # Routes, guards
+│       └── utils/             # Formatters, constants
 │
-├── GolfCharity_Master_Prompt_v2.md  # Complete build specification
-├── guide.md                         # Development guide
-└── README.md                        # This file
+└── backend/
+    └── src/
+        ├── features/          # Feature-based modules
+        │   ├── auth/          # Signup, login, logout
+        │   ├── users/         # Profile management
+        │   ├── scores/        # Score CRUD
+        │   ├── charities/     # Charity listing
+        │   ├── draws/         # Draw engine, prize calculator
+        │   ├── claims/        # Prize claims and proof upload
+        │   ├── payments/      # Stripe checkout and webhooks
+        │   ├── emails/        # Email service and templates
+        │   └── admin/         # Admin endpoints and analytics
+        ├── config/            # DB, cache, logger, rate limits
+        ├── middleware/        # Auth, validate, error handler
+        └── utils/             # ApiError, asyncHandler, pagination
 ```
 
 ---
 
-## ✨ Key Features
+## Database Schema
 
-### User Features
-- **Score Tracking:** Track golf scores using Stableford format with rolling 5-score system
-- **Monthly Draws:** Participate in lottery-style prize draws based on score matches
-- **Charity Selection:** Choose a charity to support with every subscription
-- **Real-time Analytics:** View personal statistics and draw history
-- **Subscription Management:** Flexible monthly and yearly plans
+The platform uses 7 PostgreSQL tables managed by Supabase:
 
-### Admin Features
-- **Draw Management:** Configure and execute monthly draws with multiple algorithm modes
-- **User Management:** View user activity, subscriptions, and scores
-- **Prize Administration:** Manage prize pools and track claims
-- **Charity Management:** Add, feature, and manage charities
-- **Analytics Dashboard:** Platform-wide statistics and reporting
-- **Email Management:** Send transactional and promotional emails
+| Table | Purpose |
+|---|---|
+| profiles | User accounts, subscription status, Stripe IDs |
+| scores | Golf scores (max 5 per user, rolling) |
+| charities | Charity listings with totals |
+| draws | Monthly draws with drawn numbers and status |
+| draw_entries | Per-user draw entry with match count and prize |
+| prize_claims | Winner verification and payout tracking |
+| payments | Payment history with charity/prize breakdown |
 
-### Technical Features
-- **Rate Limiting:** Request throttling to prevent abuse
-- **Caching:** In-memory cache for frequently accessed data
-- **Security:** Helmet headers, CORS, input validation, Row-Level Security (RLS)
-- **Error Handling:** Comprehensive error handling and logging
-- **Performance:** Virtual scrolling, lazy loading, code splitting
+**Key database features:**
+- Row Level Security on all tables
+- Score rolling trigger (auto-removes oldest when 6th score inserted)
+- Charity total trigger (auto-increments total_raised on payment)
+- Indexes on all foreign keys and frequent filter columns
 
 ---
 
-## 🚀 Getting Started
+## Business Logic
+
+### Prize Pool Split
+Every subscription payment is split as follows:
+```
+Payment: GBP 9.99
+  Charity (10% minimum): GBP 1.00
+  Prize pool:            GBP 8.99
+    5-match jackpot:     40% = GBP 3.60
+    4-match pool:        35% = GBP 3.15
+    3-match pool:        25% = GBP 2.25
+```
+
+### Draw Mechanics
+- 5 numbers are drawn between 1 and 45
+- Each user's submitted scores are compared against the drawn numbers
+- Match count = number of user scores that appear in drawn numbers
+- 5 matches = jackpot, 4 matches = second tier, 3 matches = third tier
+- If multiple winners in same tier — prize is split equally
+- If no jackpot winner — jackpot rolls over to next month
+
+### Draw Algorithms
+- **Random** — 5 cryptographically random integers via `crypto.randomInt`
+- **Algorithmic (Frequent)** — weighted toward most commonly submitted scores
+- **Algorithmic (Rare)** — weighted toward least commonly submitted scores
+
+### Score Rolling
+- Maximum 5 scores per user at any time
+- Enforced by a PostgreSQL trigger on the scores table
+- When a 6th score is inserted, the oldest by `played_date` is automatically deleted
+- Scores are always displayed most recent first
+
+---
+
+## Getting Started (Local Development)
 
 ### Prerequisites
 - Node.js 20+
-- npm or yarn
-- Git
-- Supabase account
-- Stripe account (for payments)
-- Resend account (for emails)
+- A Supabase project
+- A Stripe account (test mode)
+- A Resend account
 
-### Environment Setup
+### 1. Clone the repository
 
-#### Backend `.env`
+```bash
+git clone https://github.com/Anantjain-infinite/golf-charity-platform.git
+cd golf-charity-platform
 ```
+
+### 2. Set up the database
+
+Run the SQL from the project documentation in your Supabase SQL Editor in this order:
+1. Tables
+2. Indexes
+3. Triggers
+4. Row Level Security policies
+
+Create three storage buckets in Supabase:
+- `prize-proofs` (private)
+- `charity-images` (public)
+- `avatars` (public)
+
+### 3. Set up the backend
+
+```bash
+cd backend
+npm install
+```
+
+Create `backend/.env`:
+
+```env
 NODE_ENV=development
 PORT=5000
 LOG_LEVEL=info
 
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_URL=your-supabase-project-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
 
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
+STRIPE_SECRET_KEY=sk_test_your-key
+STRIPE_WEBHOOK_SECRET=whsec_from-stripe-listen
+STRIPE_MONTHLY_PRICE_ID=price_your-monthly-id
+STRIPE_YEARLY_PRICE_ID=price_your-yearly-id
 
-RESEND_API_KEY=your_resend_api_key
+RESEND_API_KEY=re_your-key
+RESEND_FROM_EMAIL=onboarding@resend.dev
 
 FRONTEND_URL=http://localhost:5173
-
-JWT_SECRET=your_jwt_secret
+APP_NAME=Golf Charity Club
+ADMIN_EMAIL=admin@golfcharity.club
 ```
 
-#### Frontend `.env`
-```
-VITE_API_URL=http://localhost:5000/api
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
-```
+Run the seed script:
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd golf-charity-platform
-   ```
-
-2. **Backend Setup**
-   ```bash
-   cd backend
-   npm install
-   npm start
-   ```
-
-3. **Frontend Setup**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-4. **Database Setup**
-   - Execute SQL from `GolfCharity_Master_Prompt_v2.md` PART 4 in Supabase SQL Editor
-   - Creates tables, indexes, triggers, and RLS policies
-
----
-
-## 💾 Database Schema
-
-### Core Tables
-- **profiles** - Extended user information & subscriptions
-- **charities** - Charity organizations
-- **scores** - Golf scores (Stableford format, rolling 5-score limit)
-- **draws** - Monthly draw configurations and results
-- **draw_entries** - User entries in draws with match counts
-- **prize_claims** - Prize claim management and tracking
-- **payments** - Subscription payment records
-
-### Key Triggers
-- **enforce_score_limit** - Maintains rolling 5-score limit per user
-- **increment_charity_total** - Auto-updates charity total raised on payment
-- **update_updated_at** - Auto-updates timestamp on profile changes
-
-### Row-Level Security
-All tables have RLS enabled:
-- Users can access their own data
-- Admins have full access
-- Public access to charities and published draws
-
----
-
-## 🔌 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `POST /api/auth/refresh` - Refresh token
-
-### Scores
-- `GET /api/scores` - Get user's scores
-- `POST /api/scores` - Add new score
-- `PATCH /api/scores/:id` - Update score
-- `DELETE /api/scores/:id` - Delete score
-
-### Charities
-- `GET /api/charities` - List charities with pagination
-- `GET /api/charities/:id` - Get charity details
-- `POST /api/charities` - Create (admin only)
-- `PATCH /api/charities/:id` - Update (admin only)
-
-### Draws
-- `GET /api/draws` - List draws
-- `GET /api/draws/:id` - Get draw details
-- `GET /api/draws/:id/preview` - Preview draw results
-- `POST /api/draws` - Create draw (admin only)
-- `POST /api/draws/:id/execute` - Execute draw (admin only)
-
-### Payments
-- `POST /api/payments/subscribe` - Create subscription
-- `POST /api/payments/webhook` - Stripe webhook
-- `GET /api/payments/history` - Payment history
-
-### Admin
-- `GET /api/admin/analytics` - Platform analytics
-- `GET /api/admin/users` - User management
-- `GET /api/admin/claims` - Prize claims
-
----
-
-## 📊 Design System
-
-### Color Palette
-- **Background:** `#0A0A0F`
-- **Surface:** Elevated card backgrounds
-- **Primary:** Mint/teal accent
-- **Secondary:** Muted text
-- **Status:** Green (success), Amber (pending), Red (error), Gray (neutral)
-
-### Typography
-- **Display Font:** Headlines and display text
-- **Body Font:** All content
-- **Mono Font:** Numbers and data
-
-### Spacing
-- Base unit: 4px
-- Grid: 4, 8, 12, 16, 24, 32, 48, 64px
-- Max content width: 1200px
-- Mobile breakpoint: 375px
-
-### Motion
-- Framer Motion for all animations
-- Smooth transitions: 200ms
-- No motion on non-interactive elements
-
----
-
-## 🏗️ Development
-
-### Running Locally
-
-**Backend:**
 ```bash
-cd backend
-npm run dev        # Development with nodemon
-npm start          # Production
-npm run seed       # Seed database with test data
+npm run seed
 ```
 
-**Frontend:**
+Start the development server:
+
+```bash
+npm run dev
+```
+
+### 4. Set up the frontend
+
 ```bash
 cd frontend
-npm run dev        # Vite dev server (http://localhost:5173)
-npm run build      # Production build
-npm run preview    # Preview production build
+npm install
 ```
 
-### Code Standards
+Create `frontend/.env`:
 
-- **Backend:** Modular feature-based structure, Zod validation, async/await
-- **Frontend:** Functional components with hooks, React Query for data fetching
-- **No TypeScript** - JavaScript throughout (per spec)
-- **Error Handling:** ApiError for backend, toast notifications for frontend
-- **Logging:** Winston for backend, console + error boundary for frontend
-
-### Testing
-
-Run tests (backend):
-```bash
-npm test
-npm run test:coverage
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-key
+VITE_APP_NAME=Golf Charity Club
 ```
 
-Run tests (frontend):
+Start the development server:
+
 ```bash
-npm run test
-npm run test:coverage
+npm run dev
+```
+
+### 5. Set up Stripe webhook forwarding (local)
+
+```bash
+stripe login
+stripe listen --forward-to http://localhost:5000/api/payments/webhook
+```
+
+Copy the webhook signing secret printed and update `STRIPE_WEBHOOK_SECRET` in your `.env`.
+
+### 6. Open the app
+
+- Frontend: http://localhost:5173
+- Backend: http://localhost:5000/api/health
+
+---
+
+## API Reference
+
+### Public Endpoints
+
+```
+GET  /api/health                    Health check
+GET  /api/charities                 List charities (paginated, searchable)
+GET  /api/charities/featured        Featured charity for homepage
+GET  /api/charities/:slug           Charity detail
+GET  /api/draws                     Published draws (paginated)
+GET  /api/draws/:id                 Single draw detail
+```
+
+### Authenticated Endpoints
+
+```
+POST   /api/auth/signup
+POST   /api/auth/login
+POST   /api/auth/logout
+
+GET    /api/users/me
+PATCH  /api/users/me
+
+GET    /api/scores
+POST   /api/scores
+PATCH  /api/scores/:id
+DELETE /api/scores/:id
+
+GET    /api/draws/my-entries
+
+GET    /api/claims
+POST   /api/claims/:id/proof
+
+POST   /api/payments/create-checkout-session
+POST   /api/payments/create-portal-session
+POST   /api/payments/webhook
+```
+
+### Admin Endpoints
+
+```
+GET    /api/admin
+GET    /api/admin/users
+GET    /api/admin/users/:id
+PATCH  /api/admin/users/:id
+DELETE /api/admin/users/:id
+
+GET    /api/admin/draws
+POST   /api/admin/draws
+POST   /api/admin/draws/:id/simulate
+POST   /api/admin/draws/:id/publish
+
+GET    /api/admin/charities
+POST   /api/admin/charities
+PATCH  /api/admin/charities/:id
+DELETE /api/admin/charities/:id
+
+GET    /api/admin/claims
+PATCH  /api/admin/claims/:id
+
+GET    /api/admin/analytics
 ```
 
 ---
 
-## 🚢 Deployment
+## Email Templates
+
+The platform sends 9 transactional emails via Resend:
+
+| Trigger | Template |
+|---|---|
+| Signup | Welcome email with get started CTA |
+| Subscription activated | Plan details, renewal date, charity selected |
+| Payment failed | Action required with billing portal link |
+| Draw published (all entries) | Drawn numbers, user scores, match result |
+| Draw published (winners only) | Prize amount, proof upload instructions |
+| Claim approved | Payment incoming notification |
+| Claim rejected | Reason and resubmission instructions |
+| Payment sent | Confirmation with amount |
+| Subscription cancelled | End date and resubscribe option |
+
+---
+
+## Rate Limiting
+
+| Endpoint Group | Limit |
+|---|---|
+| All API routes | 100 requests per 15 minutes |
+| Auth endpoints | 10 requests per 15 minutes |
+| File uploads | 5 uploads per minute |
+| Draw simulation | 10 simulations per hour |
+| Stripe webhook | 200 requests per minute |
+| Speed throttle | Delay added after 50 requests in 15 minutes |
+
+---
+
+## Deployment
+
+### Backend (Render)
+- Runtime: Node.js
+- Build command: `npm install`
+- Start command: `node src/server.js`
+- Root directory: `backend`
 
 ### Frontend (Vercel)
-```bash
-npm run build
-# Vercel auto-deploys from git
-```
+- Framework: Vite
+- Root directory: `frontend`
+- Includes `vercel.json` for client-side routing support
 
-### Backend (Railway/Render)
-1. Connect git repository
-2. Set environment variables
-3. Configure build command: `npm install`
-4. Configure start command: `npm start`
-
-### Database (Supabase)
-- Already deployed as managed service
-- Enable backups and replication in production
-- Configure custom domain
+### Environment Variables
+All sensitive values are stored as environment variables. Never committed to source control. See `.env.example` files in both `frontend` and `backend` directories.
 
 ---
 
-## 🔒 Security Features
+## Evaluation Checklist
 
-- **Rate Limiting:** 100 req/15min on API, 10 req/15min on auth endpoints
-- **CORS:** Restricted to frontend origin
-- **Helmet:** HTTP security headers
-- **Input Validation:** Zod schemas on all endpoints
-- **Password Security:** Handled by Supabase Auth
-- **Tokens:** JWT with expiration
-- **Row-Level Security:** Database-level access control
-- **HTTPS Only:** Required in production
-
----
-
-## 📝 Environment Variables
-
-See `.env.example` files in backend and frontend directories.
-
-Key variables:
-- `NODE_ENV` - development/production
-- `SUPABASE_*` - Database credentials
-- `STRIPE_*` - Payment processing
-- `RESEND_API_KEY` - Email service
-- `FRONTEND_URL` - CORS origin
-- `JWT_SECRET` - Token signing
+| Requirement | Status |
+|---|---|
+| User signup and login | Done |
+| Subscription flow (monthly and yearly) | Done |
+| Score entry with rolling 5-score logic | Done |
+| Draw system with simulation and publish | Done |
+| Charity selection and contribution calculation | Done |
+| Winner verification and payout tracking | Done |
+| User dashboard with all modules | Done |
+| Admin panel with full control | Done |
+| Data accuracy across all modules | Done |
+| Responsive design on mobile and desktop | Done |
+| Error handling and edge cases | Done |
+| Live deployment with public URL | Done |
 
 ---
 
-## 🤝 Contributing
+## Known Limitations
 
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Make your changes
-3. Commit: `git commit -m "feat: description"`
-4. Push: `git push origin feature/your-feature`
-5. Open a Pull Request
-
----
-
-## 📚 Additional Documentation
-
-- **[Master Build Prompt](./GolfCharity_Master_Prompt_v2.md)** - Complete build specification
-- **[Development Guide](./guide.md)** - Detailed development instructions
+- Stripe is in test mode. No real payments are processed.
+- Resend free tier only allows sending to verified email addresses. In production a custom domain would be configured.
+- The backend on Render free tier sleeps after 15 minutes of inactivity. First request after sleep takes 30-60 seconds.
+- Analytics charts show data only for the date range selected. Early in the platform lifecycle, charts may show minimal data.
 
 ---
 
-## 📄 License
+## Built By
 
-[Add your license here]
+**Anant Jain**
 
----
 
-## 👥 Team
 
-Built for recreational golfers who want to combine score tracking, monthly prize draws, and charitable giving in one modern platform.
-
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check the [Master Build Prompt](./GolfCharity_Master_Prompt_v2.md)
-2. Review the [Development Guide](./guide.md)
-3. Open an issue in the repository
-
----
-
-**Last Updated:** March 2026
+- LinkedIn: [linkedin.com/in/your-profile](https://linkedin.com/in/anantjain2208)
+- GitHub: [github.com/your-username](https://github.com/Anantjain-infinite)
+- Email: [your@email.com](mailto:anantjain.works@gmail.com)
