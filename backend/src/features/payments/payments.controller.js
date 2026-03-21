@@ -32,7 +32,7 @@ const checkout = asyncHandler(async (req, res) => {
 // POST /api/payments/create-portal-session
 // Authenticated — creates Stripe billing portal session
 const portal = asyncHandler(async (req, res) => {
-  const { return_url } = req.body;
+  const return_url = req.body?.return_url || null;
 
   const result = await createPortalSession(req.user.id, return_url);
 
@@ -41,7 +41,6 @@ const portal = asyncHandler(async (req, res) => {
     data: result,
   });
 });
-
 // POST /api/payments/webhook
 // Stripe webhook — raw body required, signature verified
 const webhook = async (req, res) => {

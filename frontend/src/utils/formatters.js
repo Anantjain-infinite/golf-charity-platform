@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns';
 
 export const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return 'GBP 0.00';
-  return `GBP ${parseFloat(amount).toFixed(2)}`;
+  return `INR ${parseFloat(amount).toFixed(2)}`;
 };
 
 export const formatDate = (dateString) => {

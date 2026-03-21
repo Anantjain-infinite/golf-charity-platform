@@ -24,7 +24,6 @@ router.post(
 router.post(
   '/create-portal-session',
   authenticate,
-  validate(createPortalSchema),
   portal
 );
 

@@ -105,21 +105,63 @@ const handleCheckoutCompleted = async (session) => {
     return;
   }
 
-  // Get the subscription details
-  const subscription = await stripe.subscriptions.retrieve(
-    session.subscription
-  );
+  // Log what we received
+  logger.info({
+    message: 'handleCheckoutCompleted: processing',
+    userId,
+    plan,
+    subscriptionId: session.subscription,
+    subscriptionType: typeof session.subscription,
+  });
 
-  const renewalDate = new Date(
-    subscription.current_period_end * 1000
-  ).toISOString();
+  // subscription can sometimes be an expanded object — extract the ID safely
+  const subscriptionId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id;
 
-  // Update profile with subscription details
+  if (!subscriptionId) {
+    logger.error({
+      message: 'handleCheckoutCompleted: no subscription ID found',
+      session: session.id,
+    });
+    return;
+  }
+
+  // Retrieve subscription from Stripe
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  logger.info({
+    message: 'handleCheckoutCompleted: subscription retrieved',
+    subscriptionStatus: subscription.status,
+    currentPeriodEnd: subscription.current_period_end,
+    currentPeriodEndType: typeof subscription.current_period_end,
+  });
+
+  // Safely convert Unix timestamp
+  const periodEnd =
+  subscription.current_period_end ??
+  subscription.items?.data?.[0]?.current_period_end ??
+  subscription.billing_cycle_anchor;
+
+if (!periodEnd || typeof periodEnd !== 'number') {
+  logger.error({
+    message: 'handleCheckoutCompleted: invalid current_period_end',
+    periodEnd,
+    subscriptionId,
+  });
+  return;
+}
+
+const renewalDate = new Date(periodEnd * 1000).toISOString();
+
+
+  // Update profile
   const { error: updateError } = await supabaseAdmin
     .from('profiles')
     .update({
       stripe_customer_id: session.customer,
-      stripe_subscription_id: session.subscription,
+      stripe_subscription_id: subscriptionId,
       subscription_status: 'active',
       subscription_plan: plan,
       subscription_renewal_date: renewalDate,
@@ -140,54 +182,118 @@ const handleCheckoutCompleted = async (session) => {
     message: 'handleCheckoutCompleted: subscription activated',
     userId,
     plan,
-    subscriptionId: session.subscription,
+    subscriptionId,
+    renewalDate,
   });
 
-  // Send subscription confirmed email
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('full_name, email, charities(name)')
-    .eq('id', userId)
-    .single();
+  // Send email
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name, email, charities(name)')
+      .eq('id', userId)
+      .single();
 
-  if (profile) {
-    await sendSubscriptionConfirmedEmail({
-      to: profile.email,
-      fullName: profile.full_name,
-      plan,
-      renewalDate: new Date(renewalDate).toLocaleDateString('en-GB'),
-      charityName: profile.charities?.name,
+    if (profile) {
+      await sendSubscriptionConfirmedEmail({
+        to: profile.email,
+        fullName: profile.full_name,
+        plan,
+        renewalDate: new Date(renewalDate).toLocaleDateString('en-GB'),
+        charityName: profile.charities?.name,
+      });
+    }
+  } catch (emailErr) {
+    logger.warn({
+      message: 'handleCheckoutCompleted: email failed but subscription activated',
+      error: emailErr.message,
     });
   }
-
 };
+
+
 
 // Handle invoice.payment_succeeded webhook event
 const handlePaymentSucceeded = async (invoice) => {
-  if (!invoice.subscription) return;
+  // Stripe API 2026+ moved subscription ID to invoice.parent.subscription_details.subscription
+  const subscriptionId =
+    invoice.subscription ||
+    invoice.parent?.subscription_details?.subscription ||
+    null;
 
-  // Get subscription to find user
-  const { data: profile, error: profileError } = await supabaseAdmin
+  logger.info({
+    message: 'handlePaymentSucceeded: started',
+    invoiceId: invoice.id,
+    subscriptionId,
+    customer: invoice.customer,
+    amountPaid: invoice.amount_paid,
+  });
+
+  if (!subscriptionId) {
+    logger.warn({ message: 'handlePaymentSucceeded: no subscription ID found, skipping' });
+    return;
+  }
+
+  // Try finding profile by stripe_subscription_id first
+  let profile = null;
+
+  const { data: profileBySubId } = await supabaseAdmin
     .from('profiles')
     .select('id, charity_contribution_percent')
-    .eq('stripe_subscription_id', invoice.subscription)
+    .eq('stripe_subscription_id', subscriptionId)
     .single();
 
-  if (profileError || !profile) {
+  if (profileBySubId) {
+    profile = profileBySubId;
+  } else {
+    // Fallback: find by stripe_customer_id
+    const { data: profileByCustomerId } = await supabaseAdmin
+      .from('profiles')
+      .select('id, charity_contribution_percent')
+      .eq('stripe_customer_id', invoice.customer)
+      .single();
+
+    if (profileByCustomerId) {
+      profile = profileByCustomerId;
+
+      await supabaseAdmin
+        .from('profiles')
+        .update({ stripe_subscription_id: subscriptionId })
+        .eq('id', profile.id);
+    }
+  }
+
+  if (!profile) {
     logger.warn({
       message: 'handlePaymentSucceeded: profile not found',
-      subscriptionId: invoice.subscription,
+      subscriptionId,
+      customerId: invoice.customer,
     });
     return;
   }
 
-  const amount = invoice.amount_paid / 100; // Convert from pence to pounds
+  // Check duplicate
+  const { data: existing } = await supabaseAdmin
+    .from('payments')
+    .select('id')
+    .eq('stripe_invoice_id', invoice.id)
+    .single();
+
+  if (existing) {
+    logger.info({ message: 'handlePaymentSucceeded: already recorded', invoiceId: invoice.id });
+    return;
+  }
+
+  const amount = invoice.amount_paid / 100;
   const { charityAmount, prizePoolAmount } = calculatePaymentBreakdown(
     amount,
-    profile.charity_contribution_percent
+    profile.charity_contribution_percent || 10
   );
 
-  // Create payment record
+  // Stripe API 2026+ uses period_start and period_end directly on invoice
+  const periodStart = invoice.period_start || invoice.parent?.subscription_details?.period_start;
+  const periodEnd = invoice.period_end || invoice.parent?.subscription_details?.period_end;
+
   const { error: paymentError } = await supabaseAdmin
     .from('payments')
     .insert({
@@ -196,42 +302,53 @@ const handlePaymentSucceeded = async (invoice) => {
       amount,
       currency: invoice.currency,
       status: 'succeeded',
-      subscription_period_start: new Date(
-        invoice.period_start * 1000
-      ).toISOString(),
-      subscription_period_end: new Date(
-        invoice.period_end * 1000
-      ).toISOString(),
+      subscription_period_start: periodStart
+        ? new Date(periodStart * 1000).toISOString()
+        : null,
+      subscription_period_end: periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : null,
       charity_contribution_amount: charityAmount,
       prize_pool_contribution_amount: prizePoolAmount,
     });
 
   if (paymentError) {
     logger.error({
-      message: 'handlePaymentSucceeded: failed to create payment record',
+      message: 'handlePaymentSucceeded: insert failed',
       invoiceId: invoice.id,
       error: paymentError.message,
+      errorCode: paymentError.code,
     });
     return;
   }
 
   // Update renewal date
-  const subscription = await stripe.subscriptions.retrieve(
-    invoice.subscription
-  );
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-  await supabaseAdmin
-    .from('profiles')
-    .update({
-      subscription_renewal_date: new Date(
-        subscription.current_period_end * 1000
-      ).toISOString(),
-      subscription_status: 'active',
-    })
-    .eq('id', profile.id);
+    const renewalEnd =
+      subscription.current_period_end ??
+      subscription.items?.data?.[0]?.current_period_end ??
+      subscription.billing_cycle_anchor;
+
+    await supabaseAdmin
+      .from('profiles')
+      .update({
+        subscription_renewal_date: renewalEnd
+          ? new Date(renewalEnd * 1000).toISOString()
+          : null,
+        subscription_status: 'active',
+      })
+      .eq('id', profile.id);
+  } catch (err) {
+    logger.warn({
+      message: 'handlePaymentSucceeded: failed to update renewal date',
+      error: err.message,
+    });
+  }
 
   logger.info({
-    message: 'handlePaymentSucceeded: payment recorded',
+    message: 'handlePaymentSucceeded: payment recorded successfully',
     userId: profile.id,
     amount,
     charityAmount,
@@ -239,21 +356,54 @@ const handlePaymentSucceeded = async (invoice) => {
   });
 };
 
+
 // Handle invoice.payment_failed webhook event
 const handlePaymentFailed = async (invoice) => {
-  if (!invoice.subscription) return;
+  const subscriptionId =
+    invoice.subscription ||
+    invoice.parent?.subscription_details?.subscription ||
+    null;
+
+  if (!subscriptionId) return;
 
   const { data: profile, error } = await supabaseAdmin
     .from('profiles')
     .select('id, email, full_name')
-    .eq('stripe_subscription_id', invoice.subscription)
+    .eq('stripe_subscription_id', subscriptionId)
     .single();
 
   if (error || !profile) {
+    // Fallback by customer ID
+    const { data: profileByCustomer } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('stripe_customer_id', invoice.customer)
+      .single();
+
+    if (!profileByCustomer) {
+      logger.warn({
+        message: 'handlePaymentFailed: profile not found',
+        subscriptionId,
+        customerId: invoice.customer,
+      });
+      return;
+    }
+
+    await supabaseAdmin
+      .from('profiles')
+      .update({ subscription_status: 'lapsed' })
+      .eq('id', profileByCustomer.id);
+
     logger.warn({
-      message: 'handlePaymentFailed: profile not found',
-      subscriptionId: invoice.subscription,
+      message: 'handlePaymentFailed: subscription lapsed',
+      userId: profileByCustomer.id,
     });
+
+    await sendPaymentFailedEmail({
+      to: profileByCustomer.email,
+      fullName: profileByCustomer.full_name,
+    });
+
     return;
   }
 
@@ -268,23 +418,45 @@ const handlePaymentFailed = async (invoice) => {
     invoiceId: invoice.id,
   });
 
-  // Send payment failed email
   await sendPaymentFailedEmail({
     to: profile.email,
     fullName: profile.full_name,
   });
-
 };
-
 // Handle customer.subscription.updated webhook event
 const handleSubscriptionUpdated = async (subscription) => {
-  const { data: profile, error } = await supabaseAdmin
+  // Try finding profile by stripe_subscription_id
+  let profile = null;
+
+  const { data: profileBySubId } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .eq('stripe_subscription_id', subscription.id)
     .single();
 
-  if (error || !profile) return;
+  if (profileBySubId) {
+    profile = profileBySubId;
+  } else {
+    // Fallback by customer ID
+    const { data: profileByCustomer } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('stripe_customer_id', subscription.customer)
+      .single();
+
+    if (profileByCustomer) {
+      profile = profileByCustomer;
+    }
+  }
+
+  if (!profile) {
+    logger.warn({
+      message: 'handleSubscriptionUpdated: profile not found',
+      subscriptionId: subscription.id,
+      customerId: subscription.customer,
+    });
+    return;
+  }
 
   const statusMap = {
     active: 'active',
@@ -294,18 +466,24 @@ const handleSubscriptionUpdated = async (subscription) => {
     trialing: 'active',
   };
 
+  // Stripe API 2026+ moved current_period_end to items level
+  const periodEnd =
+    subscription.current_period_end ??
+    subscription.items?.data?.[0]?.current_period_end ??
+    subscription.billing_cycle_anchor;
+
   await supabaseAdmin
     .from('profiles')
     .update({
       subscription_status: statusMap[subscription.status] || 'inactive',
-      subscription_renewal_date: new Date(
-        subscription.current_period_end * 1000
-      ).toISOString(),
+      subscription_renewal_date: periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : null,
     })
     .eq('id', profile.id);
 
   logger.info({
-    message: 'handleSubscriptionUpdated',
+    message: 'handleSubscriptionUpdated: profile updated',
     userId: profile.id,
     status: subscription.status,
   });
@@ -313,13 +491,35 @@ const handleSubscriptionUpdated = async (subscription) => {
 
 // Handle customer.subscription.deleted webhook event
 const handleSubscriptionDeleted = async (subscription) => {
-  const { data: profile, error } = await supabaseAdmin
+  let profile = null;
+
+  const { data: profileBySubId } = await supabaseAdmin
     .from('profiles')
     .select('id, email, full_name')
     .eq('stripe_subscription_id', subscription.id)
     .single();
 
-  if (error || !profile) return;
+  if (profileBySubId) {
+    profile = profileBySubId;
+  } else {
+    const { data: profileByCustomer } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('stripe_customer_id', subscription.customer)
+      .single();
+
+    if (profileByCustomer) {
+      profile = profileByCustomer;
+    }
+  }
+
+  if (!profile) {
+    logger.warn({
+      message: 'handleSubscriptionDeleted: profile not found',
+      subscriptionId: subscription.id,
+    });
+    return;
+  }
 
   await supabaseAdmin
     .from('profiles')
@@ -333,13 +533,27 @@ const handleSubscriptionDeleted = async (subscription) => {
     message: 'handleSubscriptionDeleted: subscription cancelled',
     userId: profile.id,
   });
-// Send cancellation confirmed email
-await sendCancellationConfirmedEmail({
-  to: profile.email,
-  fullName: profile.full_name,
-  endDate: new Date(subscription.current_period_end * 1000).toLocaleDateString('en-GB'),
-});
 
+  // Stripe API 2026+ moved current_period_end to items level
+  const periodEnd =
+    subscription.current_period_end ??
+    subscription.items?.data?.[0]?.current_period_end ??
+    subscription.billing_cycle_anchor;
+
+  try {
+    await sendCancellationConfirmedEmail({
+      to: profile.email,
+      fullName: profile.full_name,
+      endDate: periodEnd
+        ? new Date(periodEnd * 1000).toLocaleDateString('en-GB')
+        : 'your billing period end date',
+    });
+  } catch (emailErr) {
+    logger.warn({
+      message: 'handleSubscriptionDeleted: email failed',
+      error: emailErr.message,
+    });
+  }
 };
 
 export {

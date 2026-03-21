@@ -1,15 +1,17 @@
 import ApiError from '../utils/ApiError.js';
 
-// Factory: returns middleware that validates req.body against a Zod schema
 const validate = (schema, source = 'body') => (req, res, next) => {
   const result = schema.safeParse(req[source]);
   if (!result.success) {
-    const message = result.error.errors.map((e) => e.message).join('; ');
+    // Zod v4 uses result.error.issues, v3 uses result.error.errors
+    const issues = result.error.issues || result.error.errors || [];
+    const message = issues.length > 0
+      ? issues.map((e) => e.message).join('; ')
+      : 'Validation failed';
     throw new ApiError(422, message);
   }
-  req[source] = result.data; // Replace with parsed/coerced data
+  req[source] = result.data;
   next();
 };
 
 export { validate };
-

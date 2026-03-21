@@ -170,20 +170,26 @@ const OverviewTab = () => {
         }}
       >
         <StatCard
-          label="Charity Contributed"
-          value={formatCurrency(0)}
-          sub="All time"
-        />
-        <StatCard
-          label="Draws Entered"
-          value="0"
-          sub="All time"
-        />
-        <StatCard
-          label="Total Won"
-          value={formatCurrency(0)}
-          sub="All time"
-        />
+  label="Charity Contributed"
+  value={formatCurrency(profile?.charity_contribution_percent
+    ? (9.99 * (profile.charity_contribution_percent / 100)).toFixed(2)
+    : 0)}
+  sub="This month"
+/>
+<StatCard
+  label="Plan"
+  value={profile?.subscription_plan
+    ? profile.subscription_plan.charAt(0).toUpperCase() + profile.subscription_plan.slice(1)
+    : 'None'}
+  sub={profile?.subscription_renewal_date
+    ? `Renews ${formatDate(profile.subscription_renewal_date)}`
+    : ''}
+/>
+<StatCard
+  label="Contribution"
+  value={`${profile?.charity_contribution_percent || 10}%`}
+  sub="To charity"
+/>
       </div>
 
       {/* Countdown */}
