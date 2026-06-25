@@ -479,6 +479,6 @@ All sensitive values are stored as environment variables. Never committed to sou
 
 
 
-- LinkedIn: [linkedin.com/in/your-profile](https://linkedin.com/in/anantjain2208)
-- GitHub: [github.com/your-username](https://github.com/Anantjain-infinite)
-- Email: [your@email.com](mailto:anantjain.works@gmail.com)
+- LinkedIn: [https://linkedin.com/in/anantjain2208](https://linkedin.com/in/anantjain2208)
+- GitHub: [https://github.com/Anantjain-infinite](https://github.com/Anantjain-infinite)
+- Email: [anantjain.works@gmail.com(mailto:anantjain.works@gmail.com)
